@@ -1,5 +1,10 @@
-import express from  "express"
-const router = express.Router()
+import express from "express";
+import {
+	authenticateUser,
+	createUser,
+} from "../controllers/auth.controllers.js";
+const router = express.Router();
 
 // Routes
-router.get('/auth/hubspot/callback' )
+router.get("/authenticate", authenticateUser);
+router.post("/hubspot/auth", createUser);

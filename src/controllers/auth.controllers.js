@@ -1,115 +1,165 @@
+import { client_id, client_secret, redirect_url } from "../constants.js";
+import { User } from "../models/user.models.js";
 import axios from "axios";
 import qs from "qs";
-import { User as Owner } from "../models/user.models";
-const { getURLs } = require("../../constants/whitelabel");
-const {
-	getWhiteLabelOwnerOfBoloUser,
-} = require("../../controller/controllerHelpers");
 
-// Helper function to update OAuth tokens in the database
-const updateOAuthToken = async (email, tokens) => {
+async function updateHubSpotTokens(
+	userNumber,
+	accessToken,
+	refreshToken,
+	expiresIn
+) {
 	try {
-		const { access_token, refresh_token } = tokens;
-		await Owner.updateOne(
-			{ email },
+		// Find the user by their number and update the HubSpot tokens
+		const updatedUser = await User.findOneAndUpdate(
+			{ number: userNumber }, // Find user by number
 			{
 				$set: {
-					"integrationTokens.hubspot": {
-						access_token,
-						refresh_token,
+					"integrationTokens.hubspot.access_token": accessToken, // Update access token
+					"integrationTokens.hubspot.refresh_token": refreshToken, // Update refresh token
+					"integrationTokens.hubspot.expires_in": expiresIn, // Update expiry time
+				},
+			}
+		);
+
+		if (updatedUser) {
+			console.log("HubSpot tokens updated successfully:");
+			return;
+		} else {
+			console.log("User not found");
+			throw "User not found";
+		}
+	} catch (error) {
+		console.error("Error updating HubSpot tokens:", error);
+		throw "Error updating HubSpot tokens";
+	}
+}
+
+export async function authenticateUser(req, res) {
+	try {
+		const { number, clientUrl } = req.body;
+		let stateData = JSON.stringify({
+			number,
+			clientUrl,
+		});
+
+		let user = await User.findOne({ number });
+
+		// IF User does not exist create one
+		if (!user) {
+			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write crm.objects.users.read crm.objects.users.write crm.objects.owners.read tickets&state=${stateData}`;
+
+			return res.status(201).json({
+				success: true,
+				message: "New user created",
+				url: authUrl,
+			});
+		} else {
+			let { acces_token, refresh_token } = user.integrationTokens.hubspot;
+			const data = {
+				grant_type: "refresh_token",
+				client_id: client_id,
+				client_secret: client_secret,
+				refresh_token: refresh_token,
+			};
+			const url = "https://api.hubapi.com/oauth/v1/token";
+			const headers = {
+				"Content-Type": "application/x-www-form-urlencoded",
+			};
+
+			const response = await axios.post(url, qs.stringify(data), {
+				headers,
+			});
+
+			if (!response.data) {
+				throw "Error while authenticating user";
+			}
+
+			const responseData = response.data;
+
+			let expiry = new Date(
+				new Date().getTime() + responseData.expires_in
+			);
+
+			await updateHubSpotTokens(
+				number,
+				acces_token,
+				refresh_token,
+				expiry
+			);
+			return res.status(200).json({
+				success: true,
+				message: "User authenticated",
+				authenticated: true,
+			});
+		}
+	} catch (error) {
+		console.log("Error while authenticating user: ", error.message);
+		return res.status(500).json({
+			success: false,
+			message: "Error while authenticating user",
+			error: error.message,
+		});
+	}
+}
+
+export async function createUser(req, res) {
+	let code = req.query.code;
+	let state = JSON.parse(req.query.state);
+	let number = state.number;
+	let clntUrl = state.clientUrl;
+	try {
+		if (code) {
+			const data = {
+				grant_type: "authorization_code",
+				client_id: client_id,
+				client_secret: client_secret,
+				redirect_uri: `${redirect_url}/hubspot/auth`,
+				code: code,
+			};
+			const url = "https://api.hubapi.com/oauth/v1/token";
+			const headers = {
+				Accept: "application/json",
+				"Content-Type": "application/x-www-form-urlencoded",
+			};
+			const response = await axios.post(url, qs.stringify(data), {
+				headers,
+				maxBodyLength: Infinity,
+			});
+			const currentDate = new Date();
+			const expiry = new Date(
+				currentDate.getTime() + response.data.expires_in
+			);
+
+			let newUser = new User({
+				number: number,
+				integrationTokens: {
+					hubspot: {
+						acces_token: response.data.access_token,
+						refresh_token: response.data.refresh_token,
+						expires_in: expiry,
 					},
 				},
-			},
-			{ useFindAndModify: false }
-		);
-		console.log("Updated HubSpot tokens for user:", email);
+			});
+			await newUser.save();
+			const query = new URLSearchParams({
+				authenticated: true,
+			}).toString();
+			return res.redirect(`${clntUrl}?${query}`);
+		}
 	} catch (error) {
-		console.error(
-			`[route: auth] Error updating OAuth tokens for HubSpot: ${error.message}`
-		);
-		throw error; // Re-throw the error for handling upstream
-	}
-};
-
-// Helper function to exchange authorization code for tokens
-const exchangeCodeForTokens = async (code) => {
-	try {
-		const data = {
-			grant_type: "authorization_code",
-			client_id: process.env.HUBSPOT_CLIENT_ID,
-			client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-			redirect_uri: `${process.env.BASE_URL}/api/v1/signature/auth/hubspot/callback`,
-			code,
-		};
-
-		const headers = {
-			Accept: "application/json",
-			"Content-Type": "application/x-www-form-urlencoded",
-		};
-
-		const url = "https://api.hubapi.com/oauth/v1/token";
-		const response = await axios.post(url, qs.stringify(data), {
-			headers,
-			maxBodyLength: Infinity,
+		if (error.response) {
+			console.log("Error response data: ", error.response.data);
+			console.log("Error response status: ", error.response.status);
+			console.log("Error response headers: ", error.response.headers);
+		} else {
+			console.log("Error message: ", error.message);
+		}
+		return res.status(500).json({
+			success: false,
+			authenticated: false,
+			message: "Error occurred while authenticating user",
+			error: error.message,
 		});
-
-		return response.data;
-	} catch (error) {
-		console.error(
-			"Error exchanging authorization code for tokens:",
-			error.message
-		);
-		throw error; // Re-throw the error for handling upstream
 	}
-};
-
-// Main controller for handling HubSpot OAuth callback
-export const handleHubSpotCallback = async (req) => {
-	let _redirectUrl = "/";
-	let urls;
-
-	try {
-		const { code, error, state } = req.query;
-
-		// Validate state parameter
-		if (!state) {
-			throw new Error("State parameter is missing.");
-		}
-
-		const [redirectUrl, email] = state.split(";");
-
-		// Fetch owner and white-label information
-		const owner = await Owner.findOne({ email });
-		if (!owner) {
-			throw new Error(`Owner not found for email: ${email}`);
-		}
-
-		const whiteData = await getWhiteLabelOwnerOfBoloUser({
-			filter: { email: owner.email },
-		});
-		urls = getURLs({ whiteOwner: whiteData?.whiteLabelInfo });
-
-		// Update redirect URL if provided in state
-		if (redirectUrl) {
-			_redirectUrl = redirectUrl;
-		}
-
-		// Handle user denial
-		if (error) {
-			console.log("User denied access:", req.query.error_description);
-			return { redirectUrl: `${urls.FRONTEND_URL}${_redirectUrl}` };
-		}
-
-		// Exchange authorization code for tokens
-		if (code) {
-			const tokens = await exchangeCodeForTokens(code);
-			await updateOAuthToken(email, tokens);
-			console.log("Successfully updated HubSpot tokens.");
-		}
-
-		return { redirectUrl: `${urls.FRONTEND_URL}${_redirectUrl}` };
-	} catch (error) {
-		console.error("Error in HubSpot OAuth callback:", error.message);
-		throw error; // Re-throw the error for handling upstream
-	}
-};
+}
