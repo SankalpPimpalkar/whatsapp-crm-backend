@@ -39,21 +39,19 @@ export async function authenticateUser(req, res) {
 	try {
 		console.log("Authenticating");
 		const { number, clientUrl } = req.body;
-		let stateData = JSON.stringify({
-			number,
-			clientUrl,
-		});
+
+		const data = encodeURIComponent(JSON.stringify({ number, clientUrl }));
 
 		let user = await User.findOne({ number });
 		console.log("User", user)
 
 		// IF User does not exist create one
 		if (!user) {
-			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth crm.objects.companies.read crm.objects.companies.write crm.objects.contacts.read crm.objects.contacts.write crm.objects.deals.read crm.objects.deals.write crm.objects.users.read crm.objects.users.write crm.objects.owners.read tickets&state=${stateData}`;
+			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth%20crm.objects.companies.read%20crm.objects.companies.write%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.deals.read%20crm.objects.deals.write%20crm.objects.users.read%20crm.objects.users.write%20crm.objects.owners.read%20tickets&state=${data}`;
 
 			return res.status(201).json({
 				success: true,
-				message: "New user created",
+				message: "Please verify yourself with given link",
 				url: authUrl,
 			});
 		} else {
@@ -107,9 +105,11 @@ export async function authenticateUser(req, res) {
 
 export async function createUser(req, res) {
 	let code = req.query.code;
-	let state = JSON.parse(req.query.state);
+	let state = JSON.parse(decodeURIComponent(req.query.state))
 	let number = state.number;
 	let clntUrl = state.clientUrl;
+
+	console.log("Creating new User")
 
 	try {
 		if (code) {
@@ -131,7 +131,7 @@ export async function createUser(req, res) {
 				maxBodyLength: Infinity,
 			});
 
-			console.log("Response", response);
+			// console.log("Response", response);
 
 			const currentDate = new Date();
 			const expiry = new Date(
@@ -155,6 +155,9 @@ export async function createUser(req, res) {
 			const query = new URLSearchParams({
 				authenticated: true,
 			}).toString();
+
+
+
 			return res.redirect(`${clntUrl}?${query}`);
 		}
 	} catch (error) {

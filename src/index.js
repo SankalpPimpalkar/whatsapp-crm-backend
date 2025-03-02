@@ -15,7 +15,7 @@ mongodbConnection(mongo_url);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(checkAuth)
+// app.use(checkAuth)
 
 // Routes
 app.get('/', (req,res) => {
