@@ -6,5 +6,7 @@ import {
 const router = express.Router();
 
 // Routes
-router.get("/authenticate", authenticateUser);
+router.post("/authenticate", authenticateUser);
 router.post("/hubspot/auth", createUser);
+
+export default router

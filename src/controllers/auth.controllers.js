@@ -37,6 +37,7 @@ async function updateHubSpotTokens(
 
 export async function authenticateUser(req, res) {
 	try {
+		console.log("Authenticating");
 		const { number, clientUrl } = req.body;
 		let stateData = JSON.stringify({
 			number,
@@ -44,6 +45,7 @@ export async function authenticateUser(req, res) {
 		});
 
 		let user = await User.findOne({ number });
+		console.log("User", user)
 
 		// IF User does not exist create one
 		if (!user) {
@@ -108,6 +110,7 @@ export async function createUser(req, res) {
 	let state = JSON.parse(req.query.state);
 	let number = state.number;
 	let clntUrl = state.clientUrl;
+
 	try {
 		if (code) {
 			const data = {
@@ -117,6 +120,7 @@ export async function createUser(req, res) {
 				redirect_uri: `${redirect_url}/hubspot/auth`,
 				code: code,
 			};
+
 			const url = "https://api.hubapi.com/oauth/v1/token";
 			const headers = {
 				Accept: "application/json",
@@ -126,6 +130,9 @@ export async function createUser(req, res) {
 				headers,
 				maxBodyLength: Infinity,
 			});
+
+			console.log("Response", response);
+
 			const currentDate = new Date();
 			const expiry = new Date(
 				currentDate.getTime() + response.data.expires_in
@@ -142,6 +149,9 @@ export async function createUser(req, res) {
 				},
 			});
 			await newUser.save();
+
+			console.log("NewUser", newUser)
+
 			const query = new URLSearchParams({
 				authenticated: true,
 			}).toString();
@@ -150,8 +160,8 @@ export async function createUser(req, res) {
 	} catch (error) {
 		if (error.response) {
 			console.log("Error response data: ", error.response.data);
-			console.log("Error response status: ", error.response.status);
-			console.log("Error response headers: ", error.response.headers);
+			// console.log("Error response status: ", error.response.status);
+			// console.log("Error response headers: ", error.response.headers);
 		} else {
 			console.log("Error message: ", error.message);
 		}

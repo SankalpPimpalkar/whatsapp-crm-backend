@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import { mongo_url, PORT } from "./constants.js";
 import { checkAuth } from "./middlewares/auth.middleware.js";
+import AuthRouter from "./routes/auth.routes.js"
 
 const app = express();
 const port = PORT
@@ -20,6 +21,8 @@ app.use(checkAuth)
 app.get('/', (req,res) => {
     res.send('Hello World')
 })
+
+app.use(AuthRouter)
 
 // Listening
 app.listen(port, () => {
