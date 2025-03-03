@@ -2,8 +2,8 @@ import mongodbConnection from "./db/mongoose.js";
 import cors from "cors";
 import express from "express";
 import { mongo_url, PORT } from "./constants.js";
-import { checkAuth } from "./middlewares/auth.middleware.js";
 import AuthRouter from "./routes/auth.routes.js"
+import ContactRouter from "./routes/contact.routes.js"
 
 const app = express();
 const port = PORT
@@ -23,6 +23,7 @@ app.get('/', (req,res) => {
 })
 
 app.use(AuthRouter)
+app.use(ContactRouter)
 
 // Listening
 app.listen(port, () => {

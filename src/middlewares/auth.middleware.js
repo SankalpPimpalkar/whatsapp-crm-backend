@@ -9,7 +9,7 @@ export function checkAuth(req, res, next) {
 	if (!token) {
 		return res.status(401).json({
 			success: false,
-			message: "Access denied, token is missing",
+			message: "Access denied, JWT token is missing",
 		});
 	}
 

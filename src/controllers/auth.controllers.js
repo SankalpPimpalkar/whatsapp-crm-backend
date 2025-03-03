@@ -3,7 +3,7 @@ import { User } from "../models/user.models.js";
 import axios from "axios";
 import qs from "qs";
 
-async function updateHubSpotTokens(
+export async function updateHubSpotTokens(
 	userNumber,
 	accessToken,
 	refreshToken,
@@ -24,7 +24,7 @@ async function updateHubSpotTokens(
 
 		if (updatedUser) {
 			console.log("HubSpot tokens updated successfully:");
-			return;
+			return true;
 		} else {
 			console.log("User not found");
 			throw "User not found";
