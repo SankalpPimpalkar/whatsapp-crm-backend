@@ -19,7 +19,8 @@ export async function updateHubSpotTokens(
 					"integrationTokens.hubspot.refresh_token": refreshToken, // Update refresh token
 					"integrationTokens.hubspot.expires_in": expiresIn, // Update expiry time
 				},
-			}
+			},
+			{ new: true }
 		);
 
 		if (updatedUser) {
@@ -43,7 +44,7 @@ export async function authenticateUser(req, res) {
 		const data = encodeURIComponent(JSON.stringify({ number, clientUrl }));
 
 		let user = await User.findOne({ number });
-		console.log("User", user)
+		console.log("User", user);
 
 		// IF User does not exist create one
 		if (!user) {
@@ -87,6 +88,10 @@ export async function authenticateUser(req, res) {
 				refresh_token,
 				expiry
 			);
+
+			console.log("ACCESS_TOKEN", acces_token);
+			console.log("REFRESH_TOKEN", refresh_token);
+
 			return res.status(200).json({
 				success: true,
 				message: "User authenticated",
@@ -105,11 +110,11 @@ export async function authenticateUser(req, res) {
 
 export async function createUser(req, res) {
 	let code = req.query.code;
-	let state = JSON.parse(decodeURIComponent(req.query.state))
+	let state = JSON.parse(decodeURIComponent(req.query.state));
 	let number = state.number;
 	let clntUrl = state.clientUrl;
 
-	console.log("Creating new User")
+	console.log("Creating new User");
 
 	try {
 		if (code) {
@@ -150,13 +155,11 @@ export async function createUser(req, res) {
 			});
 			await newUser.save();
 
-			console.log("NewUser", newUser)
+			console.log("NewUser", newUser);
 
 			const query = new URLSearchParams({
 				authenticated: true,
 			}).toString();
-
-
 
 			return res.redirect(`${clntUrl}?${query}`);
 		}
