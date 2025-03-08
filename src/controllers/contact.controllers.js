@@ -1,6 +1,6 @@
 import axios from "axios";
 import qs from "qs";
-import { access_token, base_url, client_id, client_secret } from "../constants.js";
+import { base_url, client_id, client_secret } from "../constants.js";
 import { User } from "../models/user.models.js";
 import { updateHubSpotTokens } from "./auth.controllers.js";
 
