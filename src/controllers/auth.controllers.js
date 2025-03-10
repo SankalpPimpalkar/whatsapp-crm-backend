@@ -1,23 +1,38 @@
-import { client_id, client_secret, redirect_url } from "../constants.js";
+import { base_url, client_id, client_secret, redirect_url } from "../constants.js";
 import { User } from "../models/user.models.js";
 import axios from "axios";
 import qs from "qs";
 
-export async function updateHubSpotTokens(
-	userNumber,
-	accessToken,
-	refreshToken,
-	expiresIn
-) {
+export async function updateHubSpotTokens(owner) {
 	try {
+		// Refresh the access token
+		const data = {
+			grant_type: "refresh_token",
+			client_id: client_id,
+			client_secret: client_secret,
+			refresh_token: owner.integrationTokens.hubspot.refresh_token,
+		};
+
+		const headers = {
+			"Content-Type": "application/x-www-form-urlencoded",
+		};
+
+		const url = `${base_url}/oauth/v1/token`;
+		const response = await axios.post(url, qs.stringify(data), { headers });
+		const { refresh_token, access_token, expires_in } = response.data;
+
+		let expiry = new Date(
+			new Date().getTime() + expires_in
+		);
+
 		// Find the user by their number and update the HubSpot tokens
 		const updatedUser = await User.findOneAndUpdate(
-			{ number: userNumber }, // Find user by number
+			{ number: owner.number },
 			{
 				$set: {
-					"integrationTokens.hubspot.access_token": accessToken, // Update access token
-					"integrationTokens.hubspot.refresh_token": refreshToken, // Update refresh token
-					"integrationTokens.hubspot.expires_in": expiresIn, // Update expiry time
+					"integrationTokens.hubspot.access_token": access_token,
+					"integrationTokens.hubspot.refresh_token": refresh_token,
+					"integrationTokens.hubspot.expires_in": expiry, 
 				},
 			},
 			{ new: true }
@@ -25,7 +40,7 @@ export async function updateHubSpotTokens(
 
 		if (updatedUser) {
 			console.log("HubSpot tokens updated successfully:");
-			return true;
+			return response.data;
 		} else {
 			console.log("User not found");
 			throw "User not found";
@@ -43,11 +58,11 @@ export async function authenticateUser(req, res) {
 
 		const data = encodeURIComponent(JSON.stringify({ number, clientUrl }));
 
-		let user = await User.findOne({ number });
-		console.log("User", user);
+		let owner = await User.findOne({ number });
+		console.log("User", owner);
 
 		// IF User does not exist create one
-		if (!user) {
+		if (!owner) {
 			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth%20crm.objects.companies.read%20crm.objects.companies.write%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.deals.read%20crm.objects.deals.write%20crm.objects.users.read%20crm.objects.users.write%20crm.objects.owners.read%20tickets&state=${data}`;
 
 			return res.status(201).json({
@@ -56,41 +71,7 @@ export async function authenticateUser(req, res) {
 				url: authUrl,
 			});
 		} else {
-			let { acces_token, refresh_token } = user.integrationTokens.hubspot;
-			const data = {
-				grant_type: "refresh_token",
-				client_id: client_id,
-				client_secret: client_secret,
-				refresh_token: refresh_token,
-			};
-			const url = "https://api.hubapi.com/oauth/v1/token";
-			const headers = {
-				"Content-Type": "application/x-www-form-urlencoded",
-			};
-
-			const response = await axios.post(url, qs.stringify(data), {
-				headers,
-			});
-
-			if (!response.data) {
-				throw "Error while authenticating user";
-			}
-
-			const responseData = response.data;
-
-			let expiry = new Date(
-				new Date().getTime() + responseData.expires_in
-			);
-
-			await updateHubSpotTokens(
-				number,
-				acces_token,
-				refresh_token,
-				expiry
-			);
-
-			console.log("ACCESS_TOKEN", acces_token);
-			console.log("REFRESH_TOKEN", refresh_token);
+			await updateHubSpotTokens(owner);
 
 			return res.status(200).json({
 				success: true,
@@ -136,7 +117,7 @@ export async function createUser(req, res) {
 				maxBodyLength: Infinity,
 			});
 
-			// console.log("Response", response);
+			console.log("Response", response);
 
 			const currentDate = new Date();
 			const expiry = new Date(
@@ -166,8 +147,6 @@ export async function createUser(req, res) {
 	} catch (error) {
 		if (error.response) {
 			console.log("Error response data: ", error.response.data);
-			// console.log("Error response status: ", error.response.status);
-			// console.log("Error response headers: ", error.response.headers);
 		} else {
 			console.log("Error message: ", error.message);
 		}

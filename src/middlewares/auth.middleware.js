@@ -4,7 +4,6 @@ import { jwt_secret } from "../constants.js";
 export function checkAuth(req, res, next) {
 	// Authorization: Bearer <token>
 	const token = req.headers["authorization"]?.split(" ")[1];
-	console.log("headers",req.headers)
 
 	if (!token) {
 		return res.status(401).json({
@@ -12,8 +11,6 @@ export function checkAuth(req, res, next) {
 			message: "Access denied, JWT token is missing",
 		});
 	}
-
-	console.log(token)
 
     try {
         const decoded_token = jwt.verify(token, jwt_secret)

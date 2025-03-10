@@ -1,66 +1,50 @@
 import axios from "axios";
-import { access_token, base_url } from "../constants.js";
+import { base_url } from "../constants.js";
 import { User } from "../models/user.models.js";
+import { updateHubSpotTokens } from "./auth.controllers.js";
+import { getOwner } from "./task.controllers.js";
+import { getContacts } from "./contact.controllers.js";
 
-async function createNoteInHubspot(noteDetails) {
+async function createNoteInHubspot(noteDetails, owner) {
 	try {
 		let properties = {
 			hs_timestamp: new Date().toISOString(),
 			hs_note_body: noteDetails.note,
 		};
 
-		if (!noteDetails.owner) {
-			throw new Error("Owner field is required in noteDetails");
-		}
+		const [firstName, lastName] = noteDetails.owner.split(" ");
 
-		let [firstName, lastName] = noteDetails.owner.split(" ");
+		const { access_token } = await updateHubSpotTokens(owner);
+		const contacts = await getContacts(access_token);
 
-		// Search for Contact by Firstname & Lastname
-		const searchContactsUrl = `${base_url}/crm/v3/objects/contacts/search`;
-		const searchContactsConfig = {
-			headers: {
-				Authorization: `Bearer ${access_token}`,
-				"Content-Type": "application/json",
-			},
-		};
-
-		const searchRequestBody = {
-			filterGroups: [
-				{
-					filters: [
-						{
-							propertyName: "firstname",
-							operator: "EQ",
-							value: firstName,
-						},
-						{
-							propertyName: "lastname",
-							operator: "EQ",
-							value: lastName,
-						},
-					],
-				},
-			],
-		};
-
-		const { data: searchData } = await axios.post(
-			searchContactsUrl,
-			searchRequestBody,
-			searchContactsConfig
+		const targetedContact = contacts.find(
+			(contact) =>
+				contact.properties.firstname === firstName &&
+				contact.properties.lastname === lastName
 		);
 
-		if (!searchData.results.length) {
+		if (!targetedContact) {
 			throw new Error(
-				"Contact does not exist with this firstName and lastName"
+				`No matching contact found for ${firstName} ${lastName}`
 			);
 		}
 
-		const contact = searchData.results[0]; // First matched contact
-		console.log("Contact", contact);
-
-		// Step 1: Create the Note
-		const noteProperties = {
+		// Move associations outside of properties
+		const requestBody = {
 			properties,
+			associations: [
+				{
+					types: [
+						{
+							associationCategory: "HUBSPOT_DEFINED",
+							associationTypeId: 202,
+						},
+					],
+					to: {
+						id: targetedContact.id,
+					},
+				},
+			],
 		};
 
 		const createNoteUrl = `${base_url}/crm/v3/objects/notes`;
@@ -73,28 +57,11 @@ async function createNoteInHubspot(noteDetails) {
 
 		const { data: noteData } = await axios.post(
 			createNoteUrl,
-			noteProperties,
+			requestBody,
 			createNoteConfig
 		);
 
 		console.log("Created Note:", noteData);
-
-		// Step 2: Associate the Note with the Contact
-		const associateNoteUrl = `${base_url}/crm/v3/associations/note/contact/batch/create`;
-
-		const associateNoteBody = {
-			inputs: [
-				{
-					from: { id: noteData.id }, // Note ID
-					to: { id: contact.id }, // Contact ID
-					type: "280", // Note ↔ Contact Association Type ID
-				},
-			],
-		};
-
-		await axios.post(associateNoteUrl, associateNoteBody, createNoteConfig);
-
-		console.log("Note successfully associated with contact:", contact.id);
 
 		return noteData;
 	} catch (error) {
@@ -112,16 +79,16 @@ export async function createNote(req, res) {
 	try {
 		const { number, noteDetails } = req.body;
 
-		const Owner = await User.findOne({ number });
+		const owner = await User.findOne({ number });
 
-		if (!Owner) {
+		if (!owner) {
 			return res.status(404).json({
 				success: false,
 				message: "Owner not registered with this number",
 			});
 		}
 
-		const note = await createNoteInHubspot(noteDetails);
+		const note = await createNoteInHubspot(noteDetails, owner);
 
 		return res.status(200).json({
 			success: true,

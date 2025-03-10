@@ -1,7 +1,9 @@
-import { access_token, base_url } from "../constants";
-import { User } from "../models/user.models";
+import axios from "axios";
+import { base_url } from "../constants.js";
+import { User } from "../models/user.models.js";
+import { updateHubSpotTokens } from "./auth.controllers.js";
 
-export async function getOwner(owner) {
+export async function getOwner(access_token) {
 	try {
 		const url = `${base_url}/crm/v3/owners/`;
 		const config = {
@@ -12,12 +14,8 @@ export async function getOwner(owner) {
 
 		const response = await axios.get(url, config);
 		const owners = response.data.results;
-		let owner = owners.find(
-			(owner) =>
-				owner.firstName === firstName && owner.lastName === lastName
-		);
 
-		return owner.id;
+		return owners[0].id;
 	} catch (error) {
 		console.error(
 			"Error while getting owner details",
@@ -33,7 +31,6 @@ export async function getOwner(owner) {
 export async function createTask(req, res) {
 	try {
 		const { number, taskDetails } = req.body;
-		const [firstName, lastName] = taskDetails.owner.split(" ");
 		const owner = await User.findOne({ number });
 
 		if (!owner) {
@@ -43,7 +40,8 @@ export async function createTask(req, res) {
 			});
 		}
 
-		const ownerId = await getOwner(owner);
+		const { access_token } = await updateHubSpotTokens(owner);
+		const ownerId = await getOwner(access_token);
 
 		const taskProperties = {
 			properties: {
@@ -59,7 +57,7 @@ export async function createTask(req, res) {
 		const taskHeaders = {
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${access_token}`,
+				"authorization": `Bearer ${access_token}`,
 			},
 		};
 

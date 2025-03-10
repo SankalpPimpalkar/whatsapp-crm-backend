@@ -1,18 +1,28 @@
 import axios from "axios";
-import { access_token, base_url } from "../constants";
-import { User } from "../models/user.models";
+import { base_url } from "../constants.js";
+import { User } from "../models/user.models.js";
+import { getOwner } from "./task.controllers.js";
+import { updateHubSpotTokens } from "./auth.controllers.js";
 
-async function createDealInHubspot(dealDetails) {
+async function createDealInHubspot(dealDetails, owner) {
 	try {
+		const before = owner.integrationTokens.hubspot.acces_token
+		const { access_token } = await updateHubSpotTokens(owner);
+		console.log("Tokens are same ?", before == access_token)
+		console.log("DATE", dealDetails.closeDate)
+		console.log("DATE", new Date(dealDetails.closeDate))
+
+		const ownerId = await getOwner(access_token);
+
 		const dealProperties = {
 			properties: {
 				dealname: dealDetails.dealName,
-				hs_priority: dealDetails.priority || "LOW",
+				hs_priority: dealDetails.priority || "low",
 				pipeline: dealDetails.pipeline,
 				dealstage: dealDetails.dealStage,
 				amount: dealDetails.amount,
 				closedate: new Date(dealDetails.closeDate).toISOString(),
-				hubspot_owner_id: dealDetails.ownerId,
+				hubspot_owner_id: ownerId,
 				dealtype: dealDetails.dealType || "newbusiness",
 			},
 			associations: dealDetails.associations || [],
@@ -46,7 +56,7 @@ async function createDealInHubspot(dealDetails) {
 		};
 
 		const { data: ownerData } = await axios.get(ownerUrl, ownerheader);
-
+		console.log
 		if (!ownerData) {
 			throw "Failed to get owner data from hubspot";
 		}
@@ -78,7 +88,7 @@ export async function createDeal(req, res) {
 			});
 		}
 
-		const deal = await createDealInHubspot(dealDetails);
+		const deal = await createDealInHubspot(dealDetails, owner);
 
 		if (!deal) {
 			throw "Failed to create deal";

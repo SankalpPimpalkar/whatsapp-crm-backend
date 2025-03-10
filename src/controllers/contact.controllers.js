@@ -1,8 +1,32 @@
 import axios from "axios";
-import qs from "qs";
-import { base_url, client_id, client_secret } from "../constants.js";
+import { base_url } from "../constants.js";
 import { User } from "../models/user.models.js";
 import { updateHubSpotTokens } from "./auth.controllers.js";
+
+export async function getContacts(access_token){
+	try {
+		const url = `${base_url}/crm/v3/objects/contacts/`;
+		const config = {
+			headers: {
+				Authorization: `Bearer ${access_token}`,
+			},
+		};
+
+		const {data: contactsData} = await axios.get(url, config);
+
+		return contactsData.results
+
+	} catch (error) {
+		console.error(
+			"Error while getting contacts",
+			error?.response?.data || error
+		);
+		throw new Error(
+			error?.response?.data?.message ||
+				"Error while getting contacts"
+		);
+	}
+}
 
 async function createContactInHubspot(contactDetails, accessToken) {
 	const contactProperties = {
@@ -11,8 +35,8 @@ async function createContactInHubspot(contactDetails, accessToken) {
 			lastname: contactDetails.lastname,
 			email: contactDetails.email,
 			phone: contactDetails.number || "",
-			company: contactDetails.company || "", 
-			jobtitle: contactDetails.jobtitle || "", 
+			company: contactDetails.company || "",
+			jobtitle: contactDetails.jobtitle || "",
 			hubspot_owner_id: contactDetails.ownerId,
 			lifecyclestage: contactDetails.lifecyclestage,
 			hs_lead_status: contactDetails.leadStatus,
@@ -23,7 +47,7 @@ async function createContactInHubspot(contactDetails, accessToken) {
 		const url = `${base_url}/crm/v3/objects/contacts`;
 		const headers = {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${accessToken}`, // Use refreshed token
+			Authorization: `Bearer ${accessToken}`,
 		};
 
 		console.log("Creating contact in HubSpot");
@@ -36,7 +60,6 @@ async function createContactInHubspot(contactDetails, accessToken) {
 		throw new Error(`Failed to create contact: ${error.message}`);
 	}
 }
-
 
 export async function createContact(req, res) {
 	try {
@@ -52,27 +75,14 @@ export async function createContact(req, res) {
 			});
 		}
 
-		// Refresh the access token
-		const data = {
-			grant_type: "refresh_token",
-			client_id: client_id,
-			client_secret: client_secret,
-			refresh_token: owner.integrationTokens.hubspot.refresh_token,
-		};
-
-		const headers = {
-			"Content-Type": "application/x-www-form-urlencoded",
-		};
-
-		const url = `${base_url}/oauth/v1/token`;
-		const response = await axios.post(url, qs.stringify(data), { headers });
-		const { refresh_token, access_token, expires_in } = response.data;
-
 		// Update tokens in DB
-		await updateHubSpotTokens(owner.number, access_token, refresh_token, expires_in);
+		const { access_token } = await updateHubSpotTokens(owner);
 
 		// Pass the new token to create the contact
-		const newContact = await createContactInHubspot(contactDetails, access_token);
+		const newContact = await createContactInHubspot(
+			contactDetails,
+			access_token
+		);
 
 		return res.status(200).json({
 			success: true,

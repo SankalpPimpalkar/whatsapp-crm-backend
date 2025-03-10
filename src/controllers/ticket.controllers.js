@@ -1,14 +1,20 @@
-import { access_token, base_url } from "../constants";
-import { User } from "../models/user.models";
+import axios from "axios";
+import { base_url } from "../constants.js";
+import { User } from "../models/user.models.js";
+import { updateHubSpotTokens } from "./auth.controllers.js";
+import { getOwner } from "./task.controllers.js";
 
-async function createTicketInHubspot(ticketDetails) {
+async function createTicketInHubspot(ticketDetails, access_token) {
 	try {
+
+		const ownerId = await getOwner(access_token)
+
 		const ticketProperties = {
 			properties: {
 				hs_pipeline: ticketDetails.pipeline,
 				hs_lastmodifieddate: new Date().toISOString(),
 				hs_pipeline_stage: ticketDetails.pipelineStage || "1",
-				hubspot_owner_id: ticketDetails.ownerId,
+				hubspot_owner_id: ownerId,
 				source_type: ticketDetails.source || "PHONE",
 				hs_ticket_priority: ticketDetails.priority || "LOW",
 				subject: ticketDetails.name,
@@ -31,8 +37,7 @@ async function createTicketInHubspot(ticketDetails) {
 			ticketHeaders
 		);
 
-        return ticketData;
-
+		return ticketData;
 	} catch (error) {
 		console.error(
 			"Error while creating a ticket:",
@@ -57,18 +62,18 @@ export async function createTicket(req, res) {
 			});
 		}
 
-        const ticket = await createTicketInHubspot(ticketDetails);
+		const { access_token } = await updateHubSpotTokens(owner);
+		const ticket = await createTicketInHubspot(ticketDetails, access_token);
 
-        if(!ticket) {
-            throw "Failed to create ticket"
-        }
+		if (!ticket) {
+			throw "Failed to create ticket";
+		}
 
-        return res.status(200).json({
+		return res.status(200).json({
 			success: true,
 			message: "Successfully created ticket",
 			data: ticket,
 		});
-
 	} catch (error) {
 		console.log("Failed to create ticket: ", error.message);
 		return res.status(500).json({
