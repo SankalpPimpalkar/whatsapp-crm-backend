@@ -1,32 +1,8 @@
 import axios from "axios";
 import { base_url } from "../constants.js";
 import { User } from "../models/user.models.js";
-import { updateHubSpotTokens } from "./auth.controllers.js";
-
-export async function getContacts(access_token){
-	try {
-		const url = `${base_url}/crm/v3/objects/contacts/`;
-		const config = {
-			headers: {
-				Authorization: `Bearer ${access_token}`,
-			},
-		};
-
-		const {data: contactsData} = await axios.get(url, config);
-
-		return contactsData.results
-
-	} catch (error) {
-		console.error(
-			"Error while getting contacts",
-			error?.response?.data || error
-		);
-		throw new Error(
-			error?.response?.data?.message ||
-				"Error while getting contacts"
-		);
-	}
-}
+import updateHubSpotTokens from "../utils/updateTokens.js";
+import getContacts from "../utils/getContacts.js";
 
 async function createContactInHubspot(contactDetails, accessToken) {
 	const contactProperties = {
@@ -96,5 +72,32 @@ export async function createContact(req, res) {
 			message: "Error while creating a new contact",
 			error: error.message,
 		});
+	}
+}
+
+export async function getAllContacts(req, res) {
+	try {
+		const { number } = req.body;
+		const owner = await User.findOne({ number });
+
+		if (!owner) {
+			return res.status(404).json({
+				success: false,
+				message: "Owner not registered with this number",
+			});
+		}
+
+		const { access_token } = await updateHubSpotTokens(owner);
+
+		const contacts = await getContacts(access_token);
+
+		return res.status(200).json({
+			success: true,
+			message: "Fetched contacts successfully",
+			data: contacts,
+		});
+	} catch (error) {
+		console.log("Error in getting contacts", error.message);
+		throw new Error(`Failed to get contacts: ${error.message}`);
 	}
 }

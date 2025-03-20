@@ -1,9 +1,8 @@
 import axios from "axios";
 import { base_url } from "../constants.js";
 import { User } from "../models/user.models.js";
-import { updateHubSpotTokens } from "./auth.controllers.js";
-import { getOwner } from "./task.controllers.js";
-import { getContacts } from "./contact.controllers.js";
+import updateHubSpotTokens from "../utils/updateTokens.js";
+import getContacts from "../utils/getContacts.js";
 
 async function createNoteInHubspot(noteDetails, owner) {
 	try {
