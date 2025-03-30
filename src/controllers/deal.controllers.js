@@ -12,7 +12,7 @@ async function createDealInHubspot(dealDetails, owner) {
 		console.log("DATE", dealDetails.closeDate);
 		console.log("DATE", new Date(dealDetails.closeDate));
 
-		const ownerId = await getOwner(access_token);
+		const hubspotOwner = await getOwner(access_token);
 
 		const dealProperties = {
 			properties: {
@@ -22,7 +22,7 @@ async function createDealInHubspot(dealDetails, owner) {
 				dealstage: dealDetails.dealStage,
 				amount: dealDetails.amount,
 				closedate: new Date(dealDetails.closeDate).toISOString(),
-				hubspot_owner_id: ownerId,
+				hubspot_owner_id: hubspotOwner.id,
 				dealtype: dealDetails.dealType || "newbusiness",
 			},
 			associations: dealDetails.associations || [],

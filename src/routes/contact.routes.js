@@ -7,6 +7,7 @@ import {
 
 const router = express.Router();
 
+// Routes
 router.post("/hubspot/contacts", checkAuth, createContact);
 router.get("/hubspot/contacts", checkAuth, getAllContacts);
 

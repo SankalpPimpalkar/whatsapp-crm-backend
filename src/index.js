@@ -8,6 +8,7 @@ import NoteRouter from "./routes/note.routes.js";
 import DealRouter from "./routes/deal.routes.js";
 import TicketRouter from "./routes/ticket.routes.js";
 import TaskRouter from "./routes/task.routes.js";
+import EmailRouter from "./routes/email.routes.js";
 
 const app = express();
 const port = PORT;
@@ -31,6 +32,7 @@ app.use(NoteRouter);
 app.use(DealRouter);
 app.use(TicketRouter);
 app.use(TaskRouter);
+app.use(EmailRouter);
 
 // Listening
 app.listen(port, () => {

@@ -7,7 +7,7 @@ import getOwner from "../utils/getOwner.js";
 async function createTicketInHubspot(ticketDetails, access_token) {
 	try {
 
-		const ownerId = await getOwner(access_token)
+		const hubspotOwner = await getOwner(access_token)
 
 		const ticketProperties = {
 			properties: {

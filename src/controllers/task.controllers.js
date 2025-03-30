@@ -18,14 +18,14 @@ export async function createTask(req, res) {
 		}
 
 		const { access_token } = await updateHubSpotTokens(owner);
-		const ownerId = await getOwner(access_token);
+		const hubspotOwner = await getOwner(access_token);
 
 		const taskProperties = {
 			properties: {
 				hs_task_subject: taskDetails.subject,
 				hs_task_status: taskDetails.status || "NOT_STARTED",
 				hs_timestamp: taskDetails.dueDate,
-				hubspot_owner_id: ownerId,
+				hubspot_owner_id: hubspotOwner.id,
 			},
 			associations: taskDetails.associations || [],
 		};

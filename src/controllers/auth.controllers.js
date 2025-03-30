@@ -16,7 +16,7 @@ export async function authenticateUser(req, res) {
 
 		// IF User does not exist create one
 		if (!owner) {
-			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth%20crm.objects.companies.read%20crm.objects.companies.write%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.deals.read%20crm.objects.deals.write%20crm.objects.users.read%20crm.objects.users.write%20crm.objects.owners.read%20tickets&state=${data}`;
+			let authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${client_id}&redirect_uri=${redirect_url}/hubspot/auth&scope=oauth%20transactional-email%20crm.objects.companies.read%20crm.objects.companies.write%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.deals.read%20crm.objects.deals.write%20crm.objects.users.read%20crm.objects.users.write%20crm.objects.owners.read%20tickets&state=${data}`;
 
 			return res.status(201).json({
 				success: true,

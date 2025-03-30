@@ -12,8 +12,9 @@ export default async function getOwner(access_token) {
 
         const response = await axios.get(url, config);
         const owners = response.data.results;
+        console.log("Owner", owners[0])
 
-        return owners[0].id;
+        return owners[0];
     } catch (error) {
         console.error(
             "Error while getting owner details",
